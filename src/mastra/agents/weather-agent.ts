@@ -3,7 +3,14 @@ import { Agent } from '@mastra/core/agent';
 import { Memory } from '@mastra/memory';
 import { LibSQLStore } from '@mastra/libsql';
 import { weatherTool } from '../tools/weather-tool';
+import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 
+const ollama = createOpenAICompatible({
+  name: 'ollama',
+  baseURL: 'http://localhost:11434/v1/',
+  apiKey: 'ollama',
+});
+    
 export const weatherAgent = new Agent({
   name: 'Weather Agent',
   instructions: `
@@ -20,7 +27,7 @@ export const weatherAgent = new Agent({
 
       Use the weatherTool to fetch current weather data.
 `,
-  model: openai('gpt-4o'),
+  model: ollama('qwen3:4b'),
   tools: { weatherTool },
   memory: new Memory({
     storage: new LibSQLStore({
