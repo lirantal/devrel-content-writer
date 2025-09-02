@@ -9,8 +9,14 @@ const establishWritingStyle = createStep({
     content_type: z
       .string()
       .describe("The type of content to analyze, e.g., 'article', 'blog'."),
-    brief: z.string().describe("The initial draft or brief for the content."),
-  }),
+    brief: z.string().optional().describe("Manual brief for content (use if no pr_url provided)."),
+    pr_url: z.string().url().optional().describe("GitHub PR URL to analyze for content brief (use instead of brief)."),
+  }).refine(
+    (data) => data.brief || data.pr_url,
+    {
+      message: "Either 'brief' or 'pr_url' must be provided",
+    }
+  ),
   outputSchema: z.object({
     writing_style: z
       .string()
@@ -42,7 +48,57 @@ const establishWritingStyle = createStep({
     mockedResponse.trim().length;
     const writingStyle = mockedResponse;
 
-    return { writing_style: writingStyle };
+    return { 
+      writing_style: writingStyle
+    };
+  },
+});
+
+const generateBriefFromPR = createStep({
+  id: "generate-brief-from-pr",
+  description: "Analyzes GitHub PR data to generate an article brief and outline, or uses provided brief.",
+  inputSchema: z.object({
+    writing_style: z.string().describe("The proposed writing style."),
+  }),
+  outputSchema: z.object({
+    writing_style: z.string().describe("The writing style passed through."),
+    brief: z.string().describe("The generated article brief and outline in Markdown format."),
+  }),
+  execute: async ({ inputData, mastra, getInitData }) => {
+    const initData = getInitData();
+    
+    // If PR URL is provided, use PR analysis agent to generate brief
+    if (initData.pr_url) {
+      const agent = mastra.getAgent("prAnalysisAgent");
+      if (!agent) {
+        throw new Error("PR Analysis Agent not found.");
+      }
+
+      const response = await agent.stream([
+        {
+          role: "user",
+          content: `Analyze the GitHub PR at this URL and generate a comprehensive article brief and outline: ${initData.pr_url}`,
+        },
+      ]);
+
+      let brief = "";
+      for await (const chunk of response.textStream) {
+        brief += chunk;
+      }
+
+      return { 
+        writing_style: inputData.writing_style,
+        brief: brief 
+      };
+    } else if (initData.brief) {
+      // Use provided brief
+      return { 
+        writing_style: inputData.writing_style,
+        brief: initData.brief 
+      };
+    } else {
+      throw new Error("Either 'pr_url' or 'brief' must be provided in the workflow input.");
+    }
   },
 });
 
@@ -51,14 +107,12 @@ const generateContent = createStep({
   description: "Generates content based on the writing style and brief.",
   inputSchema: z.object({
     writing_style: z.string().describe("The proposed writing style."),
+    brief: z.string().describe("The article brief and outline."),
   }),
   outputSchema: z
     .string()
     .describe("The generated content as text output in Markdown format."),
-  execute: async ({ inputData, mastra, getInitData }) => {
-    const initData = getInitData();
-    const brief = initData.brief;
-
+  execute: async ({ inputData, mastra }) => {
     const agent = mastra.getAgent("contentGenerationAgent");
     if (!agent) {
       throw new Error("Content Generation Agent not found.");
@@ -74,7 +128,7 @@ const generateContent = createStep({
 </writing_style>
 
 <brief>
-${brief}
+${inputData.brief}
 </brief>
         `,
       },
@@ -95,13 +149,20 @@ const contentWritingWorkflow = createWorkflow({
     content_type: z
       .string()
       .describe("The type of content to produce, e.g., 'article', 'blog'."),
-    brief: z.string().describe("The initial draft or brief for the content."),
-  }),
+    brief: z.string().optional().describe("Manual brief for content (use if no pr_url provided)."),
+    pr_url: z.string().url().optional().describe("GitHub PR URL to analyze for content brief (use instead of brief)."),
+  }).refine(
+    (data) => data.brief || data.pr_url,
+    {
+      message: "Either 'brief' or 'pr_url' must be provided",
+    }
+  ),
   outputSchema: z
     .string()
     .describe("The generated content as text output in Markdown format."),
 })
   .then(establishWritingStyle)
+  .then(generateBriefFromPR)
   .then(generateContent);
 
 contentWritingWorkflow.commit();
