@@ -11,6 +11,7 @@ const establishWritingStyle = createStep({
       .describe("The type of content to analyze, e.g., 'article', 'blog'."),
     brief: z.string().optional().describe("Manual brief for content (use if no pr_url provided)."),
     pr_url: z.string().url().optional().describe("GitHub PR URL to analyze for content brief (use instead of brief)."),
+    context: z.string().optional().describe("Additional context or specific requirements for the content generation."),
   }).refine(
     (data) => data.brief || data.pr_url,
     {
@@ -74,10 +75,22 @@ const generateBriefFromPR = createStep({
         throw new Error("PR Analysis Agent not found.");
       }
 
+      let prompt = `Analyze the GitHub PR at this URL and generate a comprehensive article brief and outline: ${initData.pr_url}`;
+      
+      // Add context if provided
+      if (initData.context) {
+        prompt += `\n\nYou are also provided with additional context in <additional_context> XML tags to better tailor the outline and brief.
+
+<additional_context>
+${initData.context}
+</additional_context>
+`;
+      }
+
       const response = await agent.stream([
         {
           role: "user",
-          content: `Analyze the GitHub PR at this URL and generate a comprehensive article brief and outline: ${initData.pr_url}`,
+          content: prompt,
         },
       ]);
 
@@ -112,16 +125,15 @@ const generateContent = createStep({
   outputSchema: z
     .string()
     .describe("The generated content as text output in Markdown format."),
-  execute: async ({ inputData, mastra }) => {
+  execute: async ({ inputData, mastra, getInitData }) => {
+    const initData = getInitData();
+    
     const agent = mastra.getAgent("contentGenerationAgent");
     if (!agent) {
       throw new Error("Content Generation Agent not found.");
     }
 
-    const response = await agent.stream([
-      {
-        role: "user",
-        content: `Use the writing style in <writing_style> and the brief (or draft) in <brief> to generate the article. 
+    let prompt = `Use the writing style in <writing_style> and the brief (or draft) in <brief> to generate the article. 
         
 <writing_style>
         ${inputData.writing_style}
@@ -129,8 +141,21 @@ const generateContent = createStep({
 
 <brief>
 ${inputData.brief}
-</brief>
-        `,
+</brief>`;
+
+    // Add context if provided
+    if (initData.context) {
+      prompt += `
+
+<additional_context>
+${initData.context}
+</additional_context>`;
+    }
+
+    const response = await agent.stream([
+      {
+        role: "user",
+        content: prompt,
       },
     ]);
 
@@ -151,6 +176,7 @@ const contentWritingWorkflow = createWorkflow({
       .describe("The type of content to produce, e.g., 'article', 'blog'."),
     brief: z.string().optional().describe("Manual brief for content (use if no pr_url provided)."),
     pr_url: z.string().url().optional().describe("GitHub PR URL to analyze for content brief (use instead of brief)."),
+    context: z.string().optional().describe("Additional context or specific requirements for the content generation (e.g., target audience details, specific angles to focus on, company messaging, etc.)."),
   }).refine(
     (data) => data.brief || data.pr_url,
     {
