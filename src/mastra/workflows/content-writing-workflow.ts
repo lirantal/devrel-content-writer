@@ -1,6 +1,7 @@
 import { createStep, createWorkflow } from "@mastra/core/workflows";
 import { z } from "zod";
 import { mockedResponse } from "../agents/writing-style-agent";
+import { authorContext } from "../context/author_profile.context";
 
 const establishWritingStyle = createStep({
   id: "establish-writing-style",
@@ -27,7 +28,7 @@ const establishWritingStyle = createStep({
     // @TODO using a mocked response with already established writing style
     // otherwise, uncomment the below
 
-    /*
+    
     const agent = mastra.getAgent("writingStyleAgent");
     if (!agent) {
       throw new Error("Writing Style Agent not found.");
@@ -44,10 +45,9 @@ const establishWritingStyle = createStep({
     for await (const chunk of response.textStream) {
       writingStyle += chunk;
     }
-    */
 
-    mockedResponse.trim().length;
-    const writingStyle = mockedResponse;
+    // mockedResponse.trim().length;
+    // const writingStyle = mockedResponse;
 
     return { 
       writing_style: writingStyle
@@ -75,11 +75,15 @@ const generateBriefFromPR = createStep({
         throw new Error("PR Analysis Agent not found.");
       }
 
-      let prompt = `Analyze the GitHub PR at this URL and generate a comprehensive article brief and outline: ${initData.pr_url}`;
+      let prompt = `Analyze the GitHub PR at this URL and generate a comprehensive article brief and outline: ${initData.pr_url},  and the author preferences in <author_context>.`;
       
       // Add context if provided
       if (initData.context) {
         prompt += `\n\nYou are also provided with additional context in <additional_context> XML tags to better tailor the outline and brief.
+
+<author_context>
+${JSON.stringify(authorContext)}
+</author_context>
 
 <additional_context>
 ${initData.context}
@@ -133,15 +137,21 @@ const generateContent = createStep({
       throw new Error("Content Generation Agent not found.");
     }
 
-    let prompt = `Use the writing style in <writing_style> and the brief (or draft) in <brief> to generate the article. 
-        
+    let prompt = `Use the writing style in <writing_style> and the brief (or draft) in <brief> to generate the article, and the author preferences in <author_context>.
+
 <writing_style>
-        ${inputData.writing_style}
+${inputData.writing_style}
 </writing_style>
 
 <brief>
 ${inputData.brief}
-</brief>`;
+</brief>
+
+<author_context>
+${JSON.stringify(authorContext)}
+</author_context>
+
+`;
 
     // Add context if provided
     if (initData.context) {
@@ -149,7 +159,8 @@ ${inputData.brief}
 
 <additional_context>
 ${initData.context}
-</additional_context>`;
+</additional_context>
+`;
     }
 
     const response = await agent.stream([

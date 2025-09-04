@@ -18,8 +18,6 @@ export const documentReaderTool = createTool({
       "Representative content to be used as guidelines, each example is formatted as its own XML tags containing the contents of the files."
     ),
   execute: async ({ context }) => {
-    console.log("Debugging context:", context);
-
     const { content_type } = context;
 
     // Detect if running inside `.mastra/output` and adjust path

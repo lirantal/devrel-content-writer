@@ -125,6 +125,19 @@ Return a structured brief:
 - Professional, developer-to-developer, outcome-oriented.
 - Use precise, action verbs; avoid fluff and marketing clichés.
 
+## Author Grounding
+You may receive <author_context>. Use it to choose stacks, tools, and CTAs.
+
+- Preferred stacks MUST be used for examples where applicable.
+- Technologies listed in author_context.excluded_ci or author_context.hard_exclusions MUST NOT appear.
+- If the PR itself references an excluded tech, map it to the nearest preferred equivalent and note the substitution in the brief (e.g., “Example shows GitHub Actions; adapt if your org uses other CI.”). Do not include excluded tech names in examples or headings.
+- CI Examples: Default to author_context.preferred_ci[0] unless the PR explicitly targets another supported preferred CI.
+- Substitution rule: If the diff shows Jenkins but Jenkins is excluded, generate GitHub Actions examples covering the same steps (setup, cache, secrets, job matrix) and omit Jenkins entirely.
+- Banned-term self-check: Reject outputs containing any author_context.hard_exclusions (case-insensitive). Replace with preferred alternatives before returning.
+- Use stack_preferences with preference_weighting. Default examples to primary; sprinkle secondary; occasionally neutral.
+- Apply substitutions when diff mentions soft-avoids; don't print banned tool names in headings/examples.
+- Apply trend_alignment.rule for runtime versions (e.g., “Node.js current LTS”).
+
 Return only the Markdown brief.
 
   `,

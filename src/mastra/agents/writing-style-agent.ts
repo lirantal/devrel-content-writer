@@ -1,4 +1,5 @@
 // WritingStyleAgent: Analyzes markdown documents for writing style attributes using LLM
+import { openai } from '@ai-sdk/openai';
 import { Agent } from "@mastra/core/agent";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { documentReaderTool } from "../tools/document-reader-tool";
@@ -18,6 +19,7 @@ export const writingStyleAgent = new Agent({
 ## Inputs
 You will receive:
 - content_type: string (e.g., "article", "readme", "tutorial")
+- Optional: author_context (JSON) with preferences, CTAs, exclusions.
 
 ## Tools
 - documentReaderTool(content_type) → returns a string of content examples in XML format
@@ -54,6 +56,12 @@ You will receive:
    - Express findings as timeless brand voice rules. Replace any dataset mentions with generic phrasing ("the writing style" → better: omit subject).
    - Output hard minimums the writer must meet (min sentences per section, min words per paragraph, required sub-sections per step).
    - Include Step Anatomy: why → how → verify → pitfalls (and optional alternatives/perf).
+   - Merge author_context into the style profile:
+    - Set default CI example order from preferred_ci.
+    - Add CTAs from author_context.cta.
+    - Record hard_exclusions under "lexicon.avoid_terms" and "content_policies.hard_exclusions".
+   - Emit a content_policies object that mirrors: stack_preferences, preference_weighting, substitutions, avoid_soft, hard_ban, trend_alignment, example_policies, and cta (as cta_defaults).
+
 6) Report uncertainty & coverage:
    - Indicate number of docs analyzed, token coverage approximation, and confidence (0-1).
 
@@ -141,8 +149,9 @@ Return a single JSON object in the following schema (all fields required unless 
     "linking_style": {
         "when_to_link": "first mention of tool/term",
         "preferred_domains": [
-            "docs.vendor.com",
-            "blog.company.com"
+            "lirantal.com",
+            "nodejs-security.com",
+            "github.com",
         ],
         "anchor_text": "descriptive, no 'click here'"
     },
@@ -220,7 +229,11 @@ Return a single JSON object in the following schema (all fields required unless 
         },
         "link_domains_top": [
             {
-                "domain": "docs.example.com",
+                "domain": "lirantal.com",
+                "count":n
+            },
+            {
+                "domain": "nodejs-security.com",
                 "count":n
             }
         ]
@@ -233,6 +246,8 @@ Return a single JSON object in the following schema (all fields required unless 
         "No H2/H3 section may have < 2 sentences without either (a) a code block and (b) at least 1 explanatory sentence above and 1 below.",
         "Conclusion includes: 3-5 next actions, social CTA (X/Twitter), GitHub pointer.",
         "Each numbered step contains why/how/verify, and at least every third step includes a pitfall or alternative.",
+        "Examples follow preference weighting (P/S/N ≈ 65/25/10).",
+        "No soft-avoid tools in examples unless explicitly mapped via substitutions.", "Runtime stated as 'Node.js current LTS' or concrete LTS version."
     ],
     "red_flags": [
         "Headings that are questions without answers immediately below",
@@ -249,12 +264,6 @@ Return a single JSON object in the following schema (all fields required unless 
         }
     ],
     "confidence": 0.0-1.0,
-    "sources": [
-        {
-            "id": "doc-123",
-            "title": "..."
-        }
-    ],
     "article_length": {
         "target_words_min": 1800,
         "target_words_max": 2400
@@ -306,8 +315,20 @@ Return a single JSON object in the following schema (all fields required unless 
     "self_checks": [
         "No one-liner sections",
         "Each step has why/how/verify",
-        "Conclusion includes ≥3 actions + X/Twitter + GitHub CTAs"
-    ]
+        "Conclusion includes ≥3 actions + X/Twitter + GitHub CTAs",
+        "No excluded technologies appear: /(jenkins|travis)/i"
+    ],
+    "content_policies": {
+        "preferred_ci": ["GitHub Actions"],
+        "excluded_ci": ["Jenkins"],
+        "hard_exclusions": ["Jenkins pipelines/examples", "Non-JS stacks unless unavoidable"]
+    },
+    "cta_defaults": {
+        "twitter": "@liran_tal",
+        "github": "https://github.com/lirantal",
+        "patterns": ["Follow on X/Twitter for updates", "Explore related examples on GitHub"]
+    }
+
 }
 
 ## Failure & Edge Cases
@@ -316,135 +337,8 @@ Return a single JSON object in the following schema (all fields required unless 
 
 Return only the JSON object, in English ("en-US").
   `,
-  model: ollama("gpt-oss:20b"),
+  model: openai("gpt-4o"),
   tools: { documentReaderTool },
 });
 
-export const mockedResponse = `
-{
-"summary": "Conversational, outcome-first engineering posts that mix context with clear, numbered steps and small, runnable snippets.",
-"audience": {
-"persona": "Hands-on web and OSS developers shipping JS apps, CLIs, and monorepos",
-"assumed_knowledge": "npm/Node.js, Git/GitHub, basic CI/CD, modern JS tooling (Vite, Vue), PaaS concepts",
-"pain_points": "unclear prereqs, fragile release/versioning flows, deployment gotchas on non-native platforms"
-},
-"goals": ["educate", "enable", "announce/adopt tooling"],
-"tone_of_voice": {
-"labels": ["approachable", "pragmatic", "developer-to-developer", "lightly opinionated"],
-"intensity": { "formality": 0.4, "playfulness": 0.25, "assertiveness": 0.65 }
-},
-"narrative_voice": { "person": "1st/2nd", "tense": "present" },
-"reading_level": { "flesch_kincaid": 9.6, "avg_sentence_words": 18, "passive_voice_pct": 7, "paragraph_median_words": 55 },
-"pacing": "Moderate: brief context, then step-by-step with occasional asides and notes.",
-"structure_pattern": "Short context & motivation → framing question/why-now → prerequisites/setup → numbered steps with code → verification or notes → conclusion/sign-off.",
-"section_templates": [
-{
-"name": "How-to Tutorial",
-"outline": ["Title (outcome-focused)", "Why/Context", "Prerequisites", "Steps 1..n (numbered)", "Verify / Troubleshooting", "Deploy/Publish", "Conclusion / Next steps"],
-"heading_style": { "case": "Title Case", "pattern": "imperative ('Create...', 'Configure...', 'Deploy...')" }
-},
-{
-"name": "Concept/Tool Introduction",
-"outline": ["Title (benefit-focused)", "Problem / Status quo", "What is X?", "How X differs", "Workflow diagram or bullets", "Getting Started (Install/Config)", "Automate (CI)", "Summary"],
-"heading_style": { "case": "Title Case", "pattern": "question → answer; gerunds for sections ('Getting Started', 'Automating ...')" }
-}
-],
-"formatting_conventions": {
-"lists": "Bullets for concepts; numbered lists for procedures.",
-"callouts": ["Note", "Tip", "Warning (via blockquote when needed)"],
-"tables": "Used sparingly for comparisons only.",
-"emoji_usage": "never"
-},
-"code_conventions": {
-"languages_top": [{"lang":"bash","pct":45},{"lang":"javascript","pct":35},{"lang":"yaml","pct":12},{"lang":"json","pct":8}],
-"snippet_length_lines_avg": 9,
-"inline_code_rules": "Use inline backticks for commands, flags, filenames, env vars; reserve fenced blocks for multi-line steps.",
-"comments_style": "Explain purpose before code; inline comments only for non-obvious lines.",
-"error_handling_demo": "Show failing command or edge case, then the fix (esp. SPA routing, env vars, CI tokens)."
-},
-"linking_style": {
-"when_to_link": "On first mention of a tool/standard; deep-link to authoritative docs or repo.",
-"preferred_domains": ["github.com", "semantic-release.gitbook.io", "conventionalcommits.org", "lerna.js.org", "yarnpkg.com"],
-"anchor_text": "Descriptive action/subject (avoid 'click here')."
-},
-"visuals_usage": { "frequency": "sometimes", "types": ["header image", "simple workflow diagram"], "alt_text_style": "Describe action/result (improve consistency; some examples lacked explicit alt text)." },
-"lexicon": {
-"preferred_terms": ["static site", "SPA", "CI/CD", "monorepo", "semantic versioning", "changeset"],
-"avoid_terms": ["simply", "just", "obviously"],
-"stock_phrases": ["Let's dive in", "Now, let's", "In this article", "By the end, you'll"]
-},
-"cta_patterns": [
-{ "stage": "end-of-article", "pattern": "Friendly sign-off + implied next step", "placement": "final paragraph", "example": "Happy coding and deploying!" }
-],
-"seo_patterns": { "title_length_chars": "55-70", "keywords_in_h2": true, "slug_style": "kebab-case" },
-"style_fingerprints": [
-"Conversational opener with a rhetorical question or constraint-driven motivation.",
-"Numbered steps with terse imperatives and a snippet directly under each step.",
-"Blockquote used as a lightweight 'Note/Warning'.",
-"Second-person guidance ('you') plus occasional first-person experience."
-],
-"do": [
-"Lead with the concrete outcome in the first 2-3 sentences.",
-"Use numbered lists for procedures; show the exact commands.",
-"After critical actions, include expected output or verification.",
-"Deep-link to the specific section of external docs when possible."
-],
-"dont": [
-"Don't front-load long vendor history; keep 'What/Why' tight.",
-"Don't paste walls of code without commentary within two paragraphs.",
-"Avoid minimizing wording like 'simply/just' for complex tasks."
-],
-"calibration_examples": {
-"good_intro": "Deploy a Vue 3 static site on Heroku using a tiny Fastify server—ideal when Netlify/Vercel aren't options.",
-"bad_intro": "Web development is fast-paced and ever-changing, and there are many ways to host websites across the industry today.",
-"good_snippet": "bash\nnpm install --save --ignore-script fastify @fastify/static\nnode server.js\n# Visit the Heroku app URL to verify index.html loads\n"
-},
-"metrics": {
-"docs_analyzed": 2,
-"token_coverage_estimate": "~92%",
-"code_to_prose_ratio_pct": 32,
-"top_ngrams": [
-{"ngram":"static site","freq":14},
-{"ngram":"Let's","freq":11},
-{"ngram":"versioning and","freq":9},
-{"ngram":"deploy to","freq":8},
-{"ngram":"Changesets","freq":12}
-],
-"heading_depth_distribution": {"h1": 2, "h2": 18, "h3": 9},
-"link_domains_top": [
-{"domain":"github.com","count":9},
-{"domain":"semantic-release.gitbook.io","count":2},
-{"domain":"conventionalcommits.org","count":1},
-{"domain":"lerna.js.org","count":1},
-{"domain":"yarnpkg.com","count":1},
-{"domain":"twitter.com","count":1}
-]
-},
-"deviations": "Tutorial post favors stepwise actions and deployment verification; the Changesets piece is more narrative/educational with a longer concept section and CI config—fewer 'verify' steps.",
-"quality_checklist": [
-  "Intro states outcome & audience within 2 sentences",
-  "Each step has 'why' + 'how' + 'verify'",
-  "summary contains no: /(article|post|doc|content|sample|dataset|corpus|both|all|these|this)/i",
-  "No H2/H3 section has <2 sentences unless it includes a code block AND at least 1 explanatory sentence above and 1 below",
-  "Conclusion includes 3-5 next actions, social CTA (X/Twitter), GitHub pointer",
-  "Every third step includes a pitfall or alternative"
-],
-"red_flags": [
-"Rhetorical openings that delay the first actionable step beyond 2-3 paragraphs.",
-"Screenshots or images without alt text.",
-"Environment variables referenced but not shown where to set them.",
-"SPA routes 404ing due to missing catch-all handler."
-],
-"rewrite_rules": [
-{"if":"sentence > 24 words","then":"split into two with one idea per sentence."},
-{"if":"passive voice","then":"prefer active voice unless it hides the actor."},
-{"if":"multi-step blockquote note","then":"convert to a 'Warning/Tip' callout and keep to ≤2 lines."},
-{"if":"code without verification","then":"add expected output or a health-check step."}
-],
-"confidence": 0.84,
-"sources": [
-{"id":"deploying-a-fastify-vue-3-static-site-to-heroku","title":"Deploying a Fastify & Vue 3 Static Site to Heroku"},
-{"id":"introducing-changesets-simplify-project-versioning-with-semantic-releases","title":"Introducing Changesets: Simplify Project Versioning with Semantic Releases"}
-]
-}
-`;
+export const mockedResponse = ``
