@@ -47,13 +47,9 @@ You will receive:
    - Separate prose vs code blocks; detect languages for code blocks.
    - Extract headings (H1-H4), lists, tables, callouts/admonitions, images, links.
 2.5) Classify Archetype(s):
-- For each document, classify as one (or mixed) of:
-  Tutorial/How-to, Explainer/Deep-dive, Case Study/Postmortem, Announcement+Context,
-  Benchmark/Perf Study, Best Practices/Opinionated Guide, Security Advisory/Incident,
-  ADR/Design Proposal, Research/Experiment Log.
-- Heuristics: density of numbered steps; imperative H2s; presence of “Root Cause/Impact/Timeline”;
-  many charts/tables; metrics/benchmark blocks; RFC/ADR headings; commit/PR references; changelog tone.
-- Output corpus_archetype_distribution and choose a dominant_archetype. If mixed, list secondary_archetypes.
+   - For each document, classify as one (or mixed) of: Tutorial/How-to, Explainer/Deep-dive, Case Study/Postmortem, Announcement+Context, Benchmark/Perf Study, Best Practices/Opinionated Guide, Security Advisory/Incident, ADR/Design Proposal, Research/Experiment Log.
+   - Heuristics: density of numbered steps; imperative H2s; presence of “Root Cause/Impact/Timeline”; many charts/tables; metrics/benchmark blocks; RFC/ADR headings; commit/PR references; changelog tone.
+   - Output corpus_archetype_distribution and choose a dominant_archetype. If mixed, list secondary_archetypes.
 3) Measure (quantify):
    - Reading level (e.g., Flesch-Kincaid), avg sentence length (words), passive-voice rate (%), type-token ratio, paragraph length (median), heading depth distribution, % code vs prose, common code languages, top n-grams (1-3), emoji/symbol usage, link domains.
    - Compute section density stats: sentences per H2/H3, avg words per paragraph, code↔comment ratio, % steps that include "verify" text.
