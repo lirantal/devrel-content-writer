@@ -2,6 +2,9 @@ import { createStep, createWorkflow } from "@mastra/core/workflows";
 import { z } from "zod";
 import { mockedResponse } from "../agents/writing-style-agent";
 import { authorContext } from "../context/author_profile.context";
+import { readFile, writeFile } from "node:fs/promises";
+import { getProjectRootPath } from "../../utils/filepath.js";
+import path from "node:path";
 
 const establishWritingStyle = createStep({
   id: "establish-writing-style",
@@ -25,10 +28,26 @@ const establishWritingStyle = createStep({
       .describe("The proposed writing style based on the analysis."),
   }),
   execute: async ({ inputData, mastra }) => {
-    // @TODO using a mocked response with already established writing style
-    // otherwise, uncomment the below
+    const logger = mastra.getLogger();
+    logger.info("workflow info log");
 
-    
+    const dataDir = path.join(getProjectRootPath(), './data/');
+    const writingStyleDir = path.join(dataDir, inputData.content_type);
+    const cachedStyleFilename = '.cached_writing_style.json';
+
+    // let's load a cached writing style
+    try {
+      const cachedStyle = await readFile(path.join(writingStyleDir, cachedStyleFilename), 'utf-8');
+      
+      if (cachedStyle && cachedStyle.trim().length > 0) {
+        return { writing_style: JSON.parse(cachedStyle) };
+      }
+    } catch (err: unknown) {
+      // File doesn't exist or can't be read, proceed to generate a new style
+      logger.info("No cached writing style found, generating a new one.");
+      logger.warn(err instanceof Error ? err.message : String(err));
+    }
+
     const agent = mastra.getAgent("writingStyleAgent");
     if (!agent) {
       throw new Error("Writing Style Agent not found.");
@@ -46,11 +65,20 @@ const establishWritingStyle = createStep({
       writingStyle += chunk;
     }
 
-    // mockedResponse.trim().length;
-    // const writingStyle = mockedResponse;
+    let parsedWritingStyle;
+    parsedWritingStyle = JSON.parse(writingStyle);
+
+    // write to cache
+    try {
+      writeFile(path.join(writingStyleDir, cachedStyleFilename), JSON.stringify(parsedWritingStyle), 'utf-8');
+    } catch (err: unknown) {
+      // Unable to write cache, proceed without caching
+      logger.warn("Unable to write cached writing style, proceeding without caching.");
+      logger.warn(err instanceof Error ? err.message : String(err));
+    }
 
     return { 
-      writing_style: writingStyle
+      writing_style: parsedWritingStyle
     };
   },
 });
