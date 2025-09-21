@@ -5,9 +5,9 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "mastra dev",
-    "build": "mastra build",
-    "start": "mastra start"
+    "dev": "op run --env-file=./.env.file -- mastra dev",
+    "build": "op run --env-file=./.env.file -- mastra build",
+    "start": "op run --env-file=./.env.file -- mastra start"
   },
   "keywords": [],
   "author": "",
