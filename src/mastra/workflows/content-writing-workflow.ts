@@ -3,7 +3,7 @@ import { z } from "zod";
 import { mockedResponse } from "../agents/writing-style-agent";
 import { authorContext } from "../context/author_profile.context";
 import { readFile, writeFile } from "node:fs/promises";
-import { getProjectRootPath } from "../../utils/filepath.js";
+import { getProjectRootPath } from "../../utils/filepath";
 import path from "node:path";
 
 const establishWritingStyle = createStep({
