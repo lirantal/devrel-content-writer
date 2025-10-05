@@ -27,13 +27,22 @@ export const websiteContentFetcherTool = createTool({
     try {
       // Launch Chromium browser instance
       const browser = await chromium.launch({
-        headless: true
+        headless: true,
       });
 
       // Create a new browser context with a randomly selected user agent string
       const context = await browser.newContext({
         userAgent: userAgentStrings[Math.floor(Math.random() * userAgentStrings.length)],
+        javaScriptEnabled: true,
+        locale: 'en-GB',
+        screen: {
+          width: 1280,
+          height: 800
+        }
       });
+
+      //add init script
+      await context.addInitScript("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
 
       // Create a new page in the browser context and navigate to target URL
       const page = await context.newPage();
