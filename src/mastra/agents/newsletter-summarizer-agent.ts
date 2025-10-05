@@ -30,7 +30,7 @@ When analyzing content, focus on:
 - Use clear, professional language
 - Ensure the summary is self-contained and valuable
 - Do not include any extra formatting, explanations, or wrapper text
-- Return ONLY the single line summary in the specified format
+- Return ONLY the single line summary
 
 ## Input
 You will receive website content that has been extracted from various sources including:
@@ -45,9 +45,6 @@ Rafael Gonzaga shows and provides a bash alias to demonstrate how to run \`npx\`
 
 ## Output Format
 You must return ONLY the summary text without any title, URL, or markdown formatting.
-The workflow will automatically format it as: [TITLE](URL) - YOUR_SUMMARY
-So you should only provide: YOUR_SUMMARY 
-
 `,
   model: openai("gpt-4o")
 });
