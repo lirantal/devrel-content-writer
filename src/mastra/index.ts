@@ -12,6 +12,7 @@ import { prAnalysisAgent } from './agents/pr-analysis-agent.js';
 // newsletter links summarizer components
 import { newsletterLinksSummarizerWorkflow } from './workflows/newsletter-links-summarizer.js';
 import { newsletterSummarizerAgent } from './agents/newsletter-summarizer-agent.js';
+import { newsletterCategorizerAgent } from './agents/newsletter-categorizer-agent.js';
 import { websiteContentFetcherTool } from './tools/website-content-fetcher-tool.js';
 
 export const mastra = new Mastra({
@@ -23,7 +24,8 @@ export const mastra = new Mastra({
     writingStyleAgent, 
     contentGenerationAgent, 
     prAnalysisAgent,
-    newsletterSummarizerAgent
+    newsletterSummarizerAgent,
+    newsletterCategorizerAgent
   },
   storage: new LibSQLStore({
     // stores telemetry, evals, ... into memory storage, if it needs to persist, change to file:../mastra.db

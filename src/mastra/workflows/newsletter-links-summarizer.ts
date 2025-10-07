@@ -81,33 +81,69 @@ const extractLinksArray = createStep({
   },
 });
 
+const categorizeSummaries = createStep({
+  id: "categorize-summaries",
+  description: "Categorizes summaries into relevant groups with H2 headings using dedicated categorizer agent",
+  inputSchema: z.array(z.string()).describe("Array of markdown formatted summaries"),
+  outputSchema: z.string().describe("Categorized markdown content with H2 headings"),
+  execute: async ({ inputData, mastra }) => {
+    const summaries = inputData;
+    
+    if (summaries.length === 0) {
+      return "No summaries to categorize.";
+    }
+
+    // Get the dedicated categorizer agent
+    const agent = mastra.getAgent("newsletterCategorizerAgent");
+    if (!agent) {
+      // Fallback: just group everything under one heading
+      const formattedSummaries = summaries.map(summary => `- ${summary}`).join('\n\n');
+      return `## Node.js Security Updates\n\n${formattedSummaries}`;
+    }
+
+    const prompt = `Please categorize the following newsletter summaries into relevant groups with H2 markdown headings:
+
+${summaries.map((summary, index) => `${index + 1}. ${summary}`).join('\n\n')}`;
+
+    const response = await agent.stream([
+      {
+        role: "user",
+        content: prompt,
+      },
+    ]);
+
+    let categorizedContent = "";
+    for await (const chunk of response.textStream) {
+      categorizedContent += chunk;
+    }
+
+    return categorizedContent.trim();
+  },
+});
+
 const collectAndFormatSummaries = createStep({
   id: "collect-and-format-summaries",
-  description: "Collects all summaries and formats them into the final markdown output",
-  inputSchema: z.array(z.string()).describe("Array of markdown formatted summaries"),
+  description: "Final formatting step for the newsletter content",
+  inputSchema: z.string().describe("Categorized markdown content"),
   outputSchema: z.string().describe("Final markdown formatted newsletter content"),
   execute: async ({ inputData }) => {
-    const summaries = inputData;
-
-    // Format summaries with bullet points and bold formatting
-    const formattedSummaries = summaries.map(summary => `- ${summary}`).join('\n\n');
-
-    return formattedSummaries;
+    return inputData;
   },
 });
 
 const newsletterLinksSummarizerWorkflow = createWorkflow({
   id: "newsletter-links-summarizer-workflow",
-  description: "Takes a list of links as input, fetches content from each URL using Playwright MCP server, summarizes each using a Node.js security expert agent, and returns formatted markdown summaries",
+  description: "Takes a list of links as input, fetches content from each URL using Playwright, summarizes each using a Node.js security expert agent, categorizes them under relevant headings, and returns formatted markdown summaries",
   inputSchema: z.object({
     links: z.array(z.object({
       link: z.string().url().describe("The URL to fetch and summarize"),
     })).describe("Array of links to process for the newsletter")
   }),
-  outputSchema: z.string().describe("Complete markdown formatted newsletter content with summaries"),
+  outputSchema: z.string().describe("Complete markdown formatted newsletter content with categorized summaries"),
 })
   .then(extractLinksArray)
   .foreach(processAndSummarizeLink)
+  .then(categorizeSummaries)
   .then(collectAndFormatSummaries);
 
 newsletterLinksSummarizerWorkflow.commit();

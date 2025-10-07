@@ -27,8 +27,9 @@ When analyzing content, focus on:
 - Be concise but informative
 - Focus on security implications for Node.js/JavaScript developers
 - Highlight actionable insights
-- Use clear, professional language
+- Use clear language but not too formal, make it personal. Use a blogger tone-of-voice writing style.
 - Ensure the summary is self-contained and valuable
+- Do not be a robot! Use human-friendly language like storytelling.
 - Do not include any extra formatting, explanations, or wrapper text
 - Return ONLY the single line summary
 
