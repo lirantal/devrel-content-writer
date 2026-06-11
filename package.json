@@ -1,8 +1,4 @@
 {
-  "publishConfig": {
-    "provenance": true,
-    "access": "public"
-  },
   "name": "devrel-content-writer",
   "version": "1.0.0",
   "description": "",
@@ -35,5 +31,9 @@
     "@types/node": "^24.6.2",
     "mastra": "^0.14.1",
     "typescript": "^5.9.3"
+  },
+  "publishConfig": {
+    "provenance": true,
+    "access": "public"
   }
 }
